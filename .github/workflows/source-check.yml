@@ -1,0 +1,37 @@
+name: Source sanity check
+
+on:
+  push:
+    branches:
+      - dev/monterey-intel
+  pull_request:
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Check shell syntax
+        shell: bash
+        run: |
+          bash -n scripts/build-monterey.sh
+          bash -n scripts/diagnose-monterey.sh
+          bash -n app/AIMP-launcher.sh
+      - name: Validate macOS property list
+        run: |
+          python3 - <<'PY'
+          import plistlib
+          with open("app/Info.plist", "rb") as f:
+              p = plistlib.load(f)
+          assert p["CFBundleExecutable"] == "AIMP"
+          assert p["LSMinimumSystemVersion"] == "12.0"
+          print("Info.plist syntax and minimum macOS verified")
+          PY
+      - name: Ensure no proprietary payload is committed
+        shell: bash
+        run: |
+          if git ls-files | grep -Ei '(^|/)(AIMP[.]exe|.*[.]dmg|.*[.]zip|wine(64)?([.]exe)?)$'; then
+            echo 'Unexpected binary payload checked in' >&2
+            exit 1
+          fi
