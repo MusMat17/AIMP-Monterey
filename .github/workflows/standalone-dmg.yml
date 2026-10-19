@@ -24,9 +24,10 @@ jobs:
       - name: Check source
         run: |
           bash -n app/launch-standalone.sh
+          bash -n app/find-official-aimp.sh
           bash -n scripts/build-standalone.sh
           plutil -lint app/Info.plist
-      - name: Build macOS Intel app + DMG with Wine and GStreamer embedded
+      - name: Verify official AIMP download bootstrap without publishing AIMP\n        run: |\n          bash app/find-official-aimp.sh "$RUNNER_TEMP/aimp-original.zip"\n          unzip -tqq "$RUNNER_TEMP/aimp-original.zip"\n          rm -f "$RUNNER_TEMP/aimp-original.zip"\n      - name: Build macOS Intel app + DMG with Wine and GStreamer embedded
         run: |
           bash scripts/build-standalone.sh
       - name: Upload experimental DMG
