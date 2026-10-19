@@ -23,7 +23,7 @@ alert() {
 
 if [[ ! -f "$EXE" ]]; then alert 'Файл AIMP.exe не найден. Собери приложение заново.'; fi
 
-export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
+export PATH="/opt/local/bin:/usr/local/bin:/opt/homebrew/bin:$PATH"
 export WINEPREFIX="$PREFIX"
 export WINEARCH='win64'
 export WINEDEBUG="${WINEDEBUG:--all}"
@@ -34,6 +34,7 @@ if [[ -n "${AIMP_WINE_BIN:-}" ]]; then
   WINE="$AIMP_WINE_BIN"
 else
   for candidate in \
+    /opt/local/bin/wine \
     /usr/local/bin/wine \
     '/Applications/Wine Stable.app/Contents/Resources/wine/bin/wine' \
     '/Applications/Wine Staging.app/Contents/Resources/wine/bin/wine' \
