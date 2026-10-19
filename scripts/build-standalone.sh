@@ -68,7 +68,7 @@ WINE_TEST_VERSION="$(DYLD_FRAMEWORK_PATH="$APP/Contents/Frameworks" \
 say "Bundled Wine responds: $WINE_TEST_VERSION"
 
 say 'Compiling native Finder entry point with a Monterey 12.0 deployment target...'
-xcrun swiftc -O -target x86_64-apple-macos12.0 \
+xcrun swiftc -parse-as-library -O -target x86_64-apple-macos12.0 \
   "$ROOT/app/MacLauncher.swift" -o "$APP/Contents/MacOS/AIMP"
 chmod 755 "$APP/Contents/MacOS/AIMP"
 cp "$ROOT/app/launch-standalone.sh" "$APP/Contents/Resources/launch-standalone.sh"
