@@ -1,0 +1,40 @@
+name: Build standalone Intel DMG (experimental)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - dev/monterey-intel
+    paths:
+      - app/MacLauncher.swift
+      - app/launch-standalone.sh
+      - app/Info.plist
+      - scripts/build-standalone.sh
+      - .github/workflows/standalone-dmg.yml
+
+permissions:
+  contents: read
+
+jobs:
+  package-intel:
+    runs-on: macos-15-intel
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check source
+        run: |
+          bash -n app/launch-standalone.sh
+          bash -n scripts/build-standalone.sh
+          plutil -lint app/Info.plist
+      - name: Build macOS Intel app + DMG with Wine and GStreamer embedded
+        run: |
+          bash scripts/build-standalone.sh
+      - name: Upload experimental DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: AIMP-Monterey-Intel-Standalone-UNTESTED
+          path: |
+            dist/AIMP-Monterey-Intel-Standalone.dmg
+            dist/AIMP-Monterey-Intel-Standalone.dmg.sha256
+          if-no-files-found: error
+          retention-days: 14
