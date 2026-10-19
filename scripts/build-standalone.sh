@@ -50,9 +50,13 @@ EXPECTED="$(awk '{print $1}' "$WORK/$GST_ASSET.sha256sum" | head -n1)"
 ACTUAL="$(shasum -a 256 "$WORK/$GST_ASSET" | awk '{print $1}')"
 [[ "$EXPECTED" == "$ACTUAL" ]] || fail 'GStreamer SHA256 mismatch'
 
-pkgutil --expand-full "$WORK/$GST_ASSET" "$WORK/gstreamer-expanded"
-GSTREAMER_FRAMEWORK="$(find "$WORK/gstreamer-expanded" -type d -name GStreamer.framework -print -quit)"
-[[ -n "$GSTREAMER_FRAMEWORK" ]] || fail 'Could not extract GStreamer.framework from the vendor installer'
+# The official pkg installs the framework under /Library/Frameworks.
+# On an ephemeral GitHub-hosted macOS runner we may use sudo during BUILD
+# (never required on the end-user's Mac) and copy the installed framework.
+say 'Installing GStreamer into ephemeral build runner only...'
+sudo /usr/sbin/installer -pkg "$WORK/$GST_ASSET" -target / >/dev/null
+GSTREAMER_FRAMEWORK='/Library/Frameworks/GStreamer.framework'
+[[ -d "$GSTREAMER_FRAMEWORK" ]] || fail 'GStreamer installer did not create the expected framework'
 ditto "$GSTREAMER_FRAMEWORK" "$APP/Contents/Frameworks/GStreamer.framework"
 [[ -e "$APP/Contents/Frameworks/GStreamer.framework/Versions/Current" ]] || fail 'GStreamer framework incomplete'
 
