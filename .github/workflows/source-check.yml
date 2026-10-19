@@ -18,6 +18,9 @@ jobs:
           bash -n scripts/build-monterey.sh
           bash -n scripts/diagnose-monterey.sh
           bash -n app/AIMP-launcher.sh
+          bash -n scripts/build-standalone.sh
+          bash -n app/launch-standalone.sh
+          bash -n app/find-official-aimp.sh
       - name: Validate macOS property list
         run: |
           python3 - <<'PY'
