@@ -48,19 +48,9 @@ ensure_aimp() {
   if [[ -f "$RES/AIMP-original.zip" ]]; then
     cp "$RES/AIMP-original.zip" "$archive"
   else
-    # Original v5.40 Windows x64 portable distribution.
-    # The AIMP project may change its endpoint, in which case the downloader
-    # must be updated — don't silently download from untrusted mirrors.
-    local url="https://aimp.ru/?do=download.file&id=32"
-    if [[ -n "${AIMP_OFFICIAL_PORTABLE_URL:-}" ]]; then
-      case "$AIMP_OFFICIAL_PORTABLE_URL" in
-        https://aimp.ru/*|https://www.aimp.ru/*) url="$AIMP_OFFICIAL_PORTABLE_URL";;
-        *) fail "Разрешена загрузка AIMP только с официального сайта aimp.ru.";;
-      esac
-    fi
-    /usr/bin/curl --fail --location --retry 2 --connect-timeout 15 \
-      --max-time 240 --proto '=https' --proto-redir '=https' \
-      --output "$archive" "$url" || fail "Не удалось загрузить AIMP с aimp.ru."
+    /bin/bash "$RES/find-official-aimp.sh" "$archive" \
+      || fail "Не удалось получить оригинальную портативную сборку AIMP x64 с aimp.ru."
+
   fi
 
   /usr/bin/unzip -tqq "$archive" || fail "Сайт AIMP не предоставил ZIP-архив. Проверь официальный адрес загрузки."
