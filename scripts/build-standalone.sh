@@ -58,8 +58,8 @@ ditto "$GSTREAMER_FRAMEWORK" "$APP/Contents/Frameworks/GStreamer.framework"
 
 say 'Checking that embedded Wine can start without a separately installed Wine package...'
 WINE_TEST="$APP/Contents/Resources/Wine/Contents/Resources/wine/bin/wine"
-WINE_TEST_VERSION="$(DYLD_FRAMEWORK_PATH="$APP/Contents/Frameworks" \\
-  DYLD_FALLBACK_FRAMEWORK_PATH="$APP/Contents/Frameworks" \\
+WINE_TEST_VERSION="$(DYLD_FRAMEWORK_PATH="$APP/Contents/Frameworks" \
+  DYLD_FALLBACK_FRAMEWORK_PATH="$APP/Contents/Frameworks" \
   "$WINE_TEST" --version 2>&1)" || fail "Bundled Wine smoke check failed: $WINE_TEST_VERSION"
 say "Bundled Wine responds: $WINE_TEST_VERSION"
 
