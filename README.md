@@ -1,47 +1,55 @@
-# AIMP Monterey — Intel / macOS 12
+# AIMP Monterey — Intel Mac / macOS 12
 
-**Status: source preview, not a tested DMG release.**
+> **Experimental:** Automated packaging is configured, but playback has **not** yet been verified on a physical Intel Mac running Monterey. This is a compatibility wrapper, **not a native AIMP port**, and a successful GitHub Actions build alone is not proof of compatibility.
 
-This repository prepares a macOS `.app` launcher for the **original AIMP 5.40.2727 Windows x64 portable build** using **a separately installed Wine runtime**, and packages the launcher into a `.dmg` on an Intel Mac. It is **not a native port** and does **not ship Wine** or AIMP binaries.
+## One-click target
 
-## Requirements
+`AIMP Monterey.app`, bundled with the WineHQ x86_64 runtime and the required GStreamer framework, launched from Finder. **No Homebrew, MacPorts, Wine installer, Terminal, or administrative privileges required on the target Mac.**
 
-- Intel x86_64 Mac, macOS Monterey 12.x.
-- A Wine 8+ distribution compatible with Intel macOS 12 and accessible as `wine` (Wine compatibility on this machine must be verified separately; several modern wrappers now require newer macOS).
-- Original, unmodified AIMP x64 portable ZIP, obtained from [the official site](https://aimp.ru/?do=download&os=desktop). The builder attempts the official download endpoint `https://aimp.ru/?do=download.file&id=31`. If that endpoint changes, put the ZIP at `vendor/AIMP-portable-original.zip`, or its unpacked content at `vendor/AIMP/` (with `AIMP.exe` in that directory).
+**First start requires internet access:** the app downloads the **unaltered original 64-bit portable AIMP** from [aimp.ru](https://aimp.ru/?do=download&os=windows), verifies the ZIP structure / Windows x64 executable, and extracts it into the current user's Application Support folder. Later starts work offline. It never publishes altered AIMP files.
 
-## Build on an Intel Mac
+The user-facing experience is intended to be: download DMG → drag app to Applications → open AIMP normally. However, due to **Gatekeeper**, an unnotarized/ad-hoc-signed app may be blocked or require explicit first-run approval. A truly normal launch without security prompts requires **Apple Developer ID signing and notarization**, which are not set up here.
+
+## Downloading a CI package
+
+After the experimental workflow succeeds, open the [GitHub Actions page](https://github.com/MusMat17/AIMP-Monterey/actions/workflows/standalone-dmg.yml), select a successful run, and download artifact **AIMP-Monterey-Intel-Standalone-UNTESTED**. GitHub may require sign-in to download build artifacts.
+
+**Do not regard this as a release yet.** A DMG is produced only when CI successfully downloads a compatible Wine x86_64 runtime, extracts GStreamer, compiles an Intel launcher with minimum macOS 12.0, passes ad-hoc signing and verifies its bundle. Runtime testing on Monterey is still mandatory.
+
+## How the package is built
+
+The workflow uses the `macos-15-intel` GitHub-hosted runner (macOS 12 runners no longer exist). It executes:
 
 ```bash
-chmod +x scripts/*.sh app/AIMP-launcher.sh
-./scripts/diagnose-monterey.sh
-./scripts/build-monterey.sh
+bash scripts/build-standalone.sh
 ```
 
-Successful **macOS** build output (local, not included in Git):
+It fetches these third-party components at build time:
+- WineHQ x86_64 [11.0_1](https://github.com/Gcenx/macOS_Wine_builds/releases/tag/11.0_1)
+- [GStreamer runtime 1.28.6](https://gstreamer.freedesktop.org/data/pkg/osx/1.28.6/) (download SHA256 verified)
+- The launcher sources in this repository.
 
-```
-dist/AIMP Monterey.app
-dist/AIMP-Monterey-Intel-12.dmg
-dist/AIMP-Monterey-Intel-12.dmg.sha256
-dist/AIMP-exe.sha256
-```
+*The original AIMP files are **not bundled** in the public DMG.* The app downloads from the official source at first launch. See the [official AIMP license](https://aimp.ru/?do=eula&os=desktop).
 
-Install the `.app` from the DMG in `/Applications`. It will create a dedicated `WINEPREFIX` at `~/Library/Application Support/AIMP Monterey/prefix`. Logs: `~/Library/Logs/AIMP Monterey/launcher.log`. Override the executable with `AIMP_WINE_BIN=/path/to/wine` when starting from Terminal.
+For local Mac builds, `scripts/build-standalone.sh` needs Apple's Xcode Command Line Tools or Xcode. **End users do not need development tools.**
 
-**This DMG is not a self-contained distribution**: to run AIMP, compatible Wine must already be installed. Finder associations, sound, playback and integration are *not yet tested on Intel Monterey*.
+## Installation state and logs
 
-## Testing targets
+- Wine prefix: `~/Library/Application Support/AIMP Monterey/prefix`
+- Original AIMP application files: `~/Library/Application Support/AIMP Monterey/AIMP`
+- Diagnostic log: `~/Library/Logs/AIMP Monterey/launcher.log`
 
-- [ ] Start in Finder, Gatekeeper behavior.
-- [ ] CoreAudio: MP3, FLAC and WAV.
-- [ ] Finder Open With, Cyrillic file paths.
-- [ ] Playlist add/reorder, fonts, lyrics and visualizer.
-- [ ] Sleep/wake, audio-device changes, quit behavior.
-- [ ] Media keys and Dock integration (not implemented).
+The old `scripts/build-monterey.sh` is preserved for reference but produced a non-standalone wrapper dependent on installed Wine. **Use `build-standalone.sh` and its CI workflow instead.**
 
-## Licensing / security
+## Validation checklist
 
-AIMP is proprietary © Artem Izmaylov. This project contains **only wrapper/build source code**: no executable AIMP files and no Wine runtime. Do not redistribute modified AIMP binaries without permission. Only download original AIMP files from its official website. The bundle is ad-hoc signed at most, **not notarized**. Do not disable macOS Gatekeeper globally.
+- [ ] GitHub Actions full Wine+GStreamer DMG build succeeds.
+- [ ] Boot successfully on a **real Intel macOS Monterey 12.x** machine.
+- [ ] Gatekeeper behavior documented / Developer ID notarization implemented.
+- [ ] Original AIMP archive downloaded and SHA256 recorded in logs.
+- [ ] 44.1 kHz and 48 kHz audio playback on CoreAudio (MP3/FLAC/WAV).
+- [ ] Track import / playlists / Cyrillic filenames / UI.
+- [ ] Sleep and wake; change audio devices during playback.
+- [ ] Finder file opening and multimedia keys (latter not implemented).
 
-See [project roadmap](docs/PLAN.md), [AIMP Component Library](https://github.com/ArtemIzmaylov/ACL), and the [older Monterey wrapper discussion](https://aimp.ru/forum/index.php?topic=42082.120).
+**Current project status: one-click build pipeline created, working release NOT yet confirmed.**
