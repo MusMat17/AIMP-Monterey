@@ -56,6 +56,13 @@ GSTREAMER_FRAMEWORK="$(find "$WORK/gstreamer-expanded" -type d -name GStreamer.f
 ditto "$GSTREAMER_FRAMEWORK" "$APP/Contents/Frameworks/GStreamer.framework"
 [[ -e "$APP/Contents/Frameworks/GStreamer.framework/Versions/Current" ]] || fail 'GStreamer framework incomplete'
 
+say 'Checking that embedded Wine can start without a separately installed Wine package...'
+WINE_TEST="$APP/Contents/Resources/Wine/Contents/Resources/wine/bin/wine"
+WINE_TEST_VERSION="$(DYLD_FRAMEWORK_PATH="$APP/Contents/Frameworks" \\
+  DYLD_FALLBACK_FRAMEWORK_PATH="$APP/Contents/Frameworks" \\
+  "$WINE_TEST" --version 2>&1)" || fail "Bundled Wine smoke check failed: $WINE_TEST_VERSION"
+say "Bundled Wine responds: $WINE_TEST_VERSION"
+
 say 'Compiling native Finder entry point with a Monterey 12.0 deployment target...'
 xcrun swiftc -O -target x86_64-apple-macos12.0 \
   "$ROOT/app/MacLauncher.swift" -o "$APP/Contents/MacOS/AIMP"
