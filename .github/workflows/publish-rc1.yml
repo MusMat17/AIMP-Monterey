@@ -1,0 +1,86 @@
+name: Publish AIMP Monterey rc1
+
+on:
+  push:
+    branches:
+      - dev/monterey-intel
+    paths:
+      - .github/workflows/publish-rc1.yml
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      BUILD_RUN_ID: "39187028859"
+      BUILD_COMMIT: "980d1c8f21200c0b6efcae4a19aeceb31dfa0bf5"
+      ARTIFACT_NAME: "AIMP-Monterey-Intel-Standalone-UNTESTED"
+      DMG: "AIMP-Monterey-Intel-Standalone.dmg"
+    steps:
+      - name: Verify original packaging workflow succeeded
+        shell: bash
+        run: |
+          set -euo pipefail
+          conclusion="$(gh run view "$BUILD_RUN_ID" --repo "$GH_REPO" --json conclusion --jq '.conclusion')"
+          [[ "$conclusion" == "success" ]] || { echo "Source build did not succeed: $conclusion" >&2; exit 1; }
+          source_sha="$(gh run view "$BUILD_RUN_ID" --repo "$GH_REPO" --json headSha --jq '.headSha')"
+          [[ "$source_sha" == "$BUILD_COMMIT" ]] || { echo "Unexpected source commit: $source_sha" >&2; exit 1; }
+      - name: Download built DMG from successful run
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          gh run download "$BUILD_RUN_ID" --repo "$GH_REPO" --name "$ARTIFACT_NAME" --dir release-assets
+          ls -lh release-assets
+      - name: Validate DMG checksum before release
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "release-assets/$DMG"
+          test -s "release-assets/$DMG.sha256"
+          expected="$(awk '{print $1; exit}' "release-assets/$DMG.sha256")"
+          actual="$(sha256sum "release-assets/$DMG" | awk '{print $1}')"
+          [[ "$expected" == "$actual" ]] || { echo "DMG SHA256 mismatch" >&2; exit 1; }
+          printf 'Verified DMG SHA256: %s\n' "$actual"
+      - name: Create public rc1 prerelease with DMG attachment
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > release-notes.md <<'RELEASE_NOTES'
+          # AIMP Monterey — rc1
+
+          Experimental **Intel x86_64** build targeting **macOS 12 Monterey**.
+
+          Download `AIMP-Monterey-Intel-Standalone.dmg` below, open it, and copy `AIMP Monterey.app` to the Applications folder.
+
+          - Wine 11.0 and GStreamer are included; no separate Wine/Homebrew/MacPorts installation is intended.
+          - On first launch, the launcher downloads an unmodified 64-bit portable AIMP package from the official `aimp.ru` website. Internet is required once.
+          - This is **not** a native AIMP port.
+          - **Unverified on a real macOS 12 Intel Mac**, and not notarized by Apple. Gatekeeper may prevent normal opening. macOS media integration and audio playback have not yet been confirmed.
+          - Outer app has ad-hoc signing; **deep strict verification of bundled third-party components reported a warning**, so this is not a production release.
+          - Bug reports should include `~/Library/Logs/AIMP Monterey/launcher.log`; do not include private file paths if sharing logs publicly.
+
+          Built from commit `980d1c8f21200c0b6efcae4a19aeceb31dfa0bf5`, GitHub Actions run `39187028859`.
+
+          AIMP is proprietary software by Artem Izmaylov. The downloadable DMG contains only the wrapper/runtime, not AIMP.exe.
+          RELEASE_NOTES
+          if gh release view rc1 --repo "$GH_REPO" >/dev/null 2>&1; then
+            echo "Release rc1 already exists: aborting instead of silently overwriting it." >&2
+            exit 1
+          fi
+          gh release create rc1 \
+            "release-assets/$DMG" \
+            "release-assets/$DMG.sha256" \
+            --repo "$GH_REPO" \
+            --target "$BUILD_COMMIT" \
+            --title "AIMP Monterey rc1 — Intel / macOS 12 (experimental)" \
+            --prerelease \
+            --notes-file release-notes.md
+          gh release view rc1 --repo "$GH_REPO" --json url,assets,tagName \
+            --jq '{url:.url,tag:.tagName,assets:[.assets[].name]}'
