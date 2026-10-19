@@ -62,6 +62,8 @@ xcrun swiftc -O -target x86_64-apple-macos12.0 \
 chmod 755 "$APP/Contents/MacOS/AIMP"
 cp "$ROOT/app/launch-standalone.sh" "$APP/Contents/Resources/launch-standalone.sh"
 chmod 755 "$APP/Contents/Resources/launch-standalone.sh"
+cp "$ROOT/app/find-official-aimp.sh" "$APP/Contents/Resources/find-official-aimp.sh"
+chmod 755 "$APP/Contents/Resources/find-official-aimp.sh"
 cp "$ROOT/app/Info.plist" "$APP/Contents/Info.plist"
 /usr/bin/plutil -lint "$APP/Contents/Info.plist"
 [[ "$(file "$APP/Contents/MacOS/AIMP")" == *x86_64* ]] || fail 'Launcher executable is not Intel'
