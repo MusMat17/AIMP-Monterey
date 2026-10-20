@@ -67,6 +67,14 @@ WINE_TEST_VERSION="$(DYLD_FRAMEWORK_PATH="$APP/Contents/Resources" \
   "$WINE_TEST" --version 2>&1)" || fail "Bundled Wine smoke check failed: $WINE_TEST_VERSION"
 say "Bundled Wine responds: $WINE_TEST_VERSION"
 
+# A version string is not proof that a relocated Wine can load kernel32.dll.
+# This integration test executes a built-in Windows process in a fresh
+# temporary Wine prefix before distributing a potentially broken DMG.
+say 'Checking actual Wine Windows bootstrap in fresh isolated prefix...'
+/bin/bash "$ROOT/scripts/smoke-wine-runtime.sh" \\
+  "$WINE_TEST" "$APP/Contents/Resources/GStreamer.framework" \\
+  || fail 'Wine cannot load Windows DLLs from the standalone bundle'
+
 say 'Compiling native Finder entry point with a Monterey 12.0 deployment target...'
 xcrun swiftc -parse-as-library -O -target x86_64-apple-macos12.0 \
   "$ROOT/app/MacLauncher.swift" -o "$APP/Contents/MacOS/AIMP"
