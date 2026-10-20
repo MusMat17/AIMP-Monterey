@@ -30,34 +30,43 @@ echo "[smoke] Wine: $("$WINE" --version)"
 echo "[smoke] DLL candidates (first 12):"
 find "$RUNTIME" -iname kernel32.dll -print | head -n 12 || true
 
-# Never allow an interactive dialog or broken Windows bootstrap to stall CI.
-python3 - "$WINE" "$PREFIX" "$LOG" <<'PY'
-import os, subprocess, sys
-wine, prefix, logfile = sys.argv[1:]
+# Wine Mono/Gecko installation dialogs and GStreamer plugin registration can
+# block in unattended prefix bootstrap. Disable these only for this smoke test
+# to isolate the core Windows loader. AIMP playback is tested separately.
+export WINEDLLOVERRIDES='winegstreamer,mscoree,mshtml='
+echo "[smoke] Overrides: $WINEDLLOVERRIDES"
+echo '[smoke] Testing Windows cmd.exe directly; creates an isolated temporary prefix.'
+
+python3 - "$WINE" "$LOG" <<'PY'
+import os, subprocess, sys, signal
+wine, logfile = sys.argv[1:]
 env = dict(os.environ)
-steps = [
-    ("wineboot init", [wine, "wineboot", "--init"], 150),
-    ("wine cmd", [wine, "cmd", "/c", "echo", "AIMP_WINE_OK"], 90),
-]
+cmd = [wine, "cmd", "/c", "echo", "AIMP_WINE_OK"]
 with open(logfile, "w", encoding="utf-8") as log:
-    for name, command, timeout in steps:
-        print(f"[smoke] Running {name} (max {timeout}s)", flush=True)
+    proc = subprocess.Popen(
+        cmd, env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True
+    )
+    try:
+        exit_code = proc.wait(timeout=65)
+    except subprocess.TimeoutExpired:
         try:
-            proc = subprocess.run(command, env=env, stdout=subprocess.PIPE,
-                                  stderr=subprocess.STDOUT, text=True, errors="replace",
-                                  timeout=timeout)
-            log.write(f"=== {name} status={proc.returncode} ===\n{proc.stdout}\n")
-            log.flush()
-            print(proc.stdout[-3500:], flush=True)
-            if proc.returncode:
-                print(f"[smoke] FAIL: {name}, exit={proc.returncode}", file=sys.stderr)
-                sys.exit(2)
-            if name == "wine cmd" and "AIMP_WINE_OK" not in proc.stdout:
-                print("[smoke] FAIL: cmd output marker missing", file=sys.stderr)
-                sys.exit(3)
-        except subprocess.TimeoutExpired as exc:
-            log.write(f"=== {name} TIMEOUT ===\n{exc.output}\n")
-            print(f"[smoke] FAIL: {name} timed out", file=sys.stderr)
-            sys.exit(4)
-print("[smoke] PASS: Wine booted and executed Windows cmd.exe")
+            os.killpg(proc.pid, signal.SIGTERM)
+            proc.wait(timeout=5)
+        except (ProcessLookupError, subprocess.TimeoutExpired):
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        log.flush()
+        with open(logfile, "r", encoding="utf-8", errors="replace") as src:
+            recent = src.read()[-6000:]
+        print("[smoke] TIMEOUT after 65s running cmd.exe; last output:\\n"+recent, flush=True)
+        sys.exit(4)
+log_contents = open(logfile, encoding="utf-8", errors="replace").read()
+print("[smoke] cmd.exe exit:", exit_code, flush=True)
+print("[smoke] last output:\\n"+log_contents[-6000:], flush=True)
+if exit_code or "AIMP_WINE_OK" not in log_contents:
+    print("[smoke] FAIL: embedded Wine cannot execute cmd.exe", file=sys.stderr)
+    sys.exit(3)
+print("[smoke] PASS: Wine successfully executed Windows cmd.exe", flush=True)
 PY
