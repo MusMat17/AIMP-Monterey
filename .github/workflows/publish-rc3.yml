@@ -1,0 +1,89 @@
+name: Publish AIMP Monterey rc3
+
+on:
+  push:
+    branches:
+      - dev/monterey-intel
+    paths:
+      - .github/workflows/publish-rc3.yml
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      BUILD_RUN_ID: "39503313183"
+      BUILD_COMMIT: "4b4abd96cac0faaf0eb043ba76a5972b9c59d95a"
+      ARTIFACT_NAME: "AIMP-Monterey-Intel-Standalone-UNTESTED"
+      DMG: "AIMP-Monterey-Intel-Standalone.dmg"
+    steps:
+      - name: Verify original packaging workflow succeeded
+        shell: bash
+        run: |
+          set -euo pipefail
+          conclusion="$(gh run view "$BUILD_RUN_ID" --repo "$GH_REPO" --json conclusion --jq '.conclusion')"
+          [[ "$conclusion" == "success" ]] || { echo "Source build did not succeed: $conclusion" >&2; exit 1; }
+          source_sha="$(gh run view "$BUILD_RUN_ID" --repo "$GH_REPO" --json headSha --jq '.headSha')"
+          [[ "$source_sha" == "$BUILD_COMMIT" ]] || { echo "Unexpected source commit: $source_sha" >&2; exit 1; }
+      - name: Download built DMG from successful run
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          gh run download "$BUILD_RUN_ID" --repo "$GH_REPO" --name "$ARTIFACT_NAME" --dir release-assets
+          ls -lh release-assets
+      - name: Validate DMG checksum before release
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "release-assets/$DMG"
+          test -s "release-assets/$DMG.sha256"
+          expected="$(awk '{print $1; exit}' "release-assets/$DMG.sha256")"
+          actual="$(sha256sum "release-assets/$DMG" | awk '{print $1}')"
+          [[ "$expected" == "$actual" ]] || { echo "DMG SHA256 mismatch" >&2; exit 1; }
+          printf 'Verified DMG SHA256: %s\n' "$actual"
+      - name: Create public rc3 prerelease with DMG attachment
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > release-notes.md <<'RELEASE_NOTES'
+          # AIMP Monterey — rc3
+
+          Experimental one-click AIMP compatibility wrapper for **Intel x86_64 Macs on macOS Monterey 12**.
+
+          **Fixes since rc2**
+          - Corrected a Bash 3.2 `set -u` crash when launching from Finder without audio-file arguments: `args[@]: unbound variable` (reported on Monterey 12.7.6).
+          - Added a macOS integration regression test that launches the actual Bash wrapper against a safe fake Wine binary both without arguments and with an audio filename containing spaces. This test passed in the CI build.
+          - Preserves original AIMP icon in Finder/Dock and native copyable early-launch diagnostics introduced in rc2.
+          - Already downloaded AIMP and existing playlists/user data are preserved.
+
+          **Install:** download the DMG attached below and replace the old `AIMP Monterey.app` in Applications. Wine 11.0 and GStreamer remain bundled. The application downloads the original AIMP from the official `aimp.ru` site only on first launch if it is not already installed.
+
+          **Known limitations:** A successful macOS 15 Intel CI build and Bash integration test do not prove Wine/AIMP playback works on **macOS 12**. This unofficial wrapper is ad-hoc signed but **not Apple notarized**. Some nested third-party runtime components do not pass deep strict signing verification; Gatekeeper might require a user approval. Do not disable Gatekeeper globally.
+
+          On a failed launch, copy the diagnostic report using the dialog, including `~/Library/Logs/AIMP Monterey/launcher.log`, and share it privately. The log may contain local file paths.
+
+          Build run: `39503313183`; source commit: `4b4abd96cac0faaf0eb043ba76a5972b9c59d95a`.
+
+          AIMP belongs to Artem Izmaylov and is proprietary. The DMG distributes only wrapper/runtime files, and downloads the unmodified original AIMP locally for the user.
+          RELEASE_NOTES
+          if gh release view rc3 --repo "$GH_REPO" >/dev/null 2>&1; then
+            echo "Release rc3 already exists: aborting instead of silently overwriting it." >&2
+            exit 1
+          fi
+          gh release create rc3 \
+            "release-assets/$DMG" \
+            "release-assets/$DMG.sha256" \
+            --repo "$GH_REPO" \
+            --target "$BUILD_COMMIT" \
+            --title "AIMP Monterey rc3 — Intel / macOS 12 (experimental)" \
+            --prerelease \
+            --notes-file release-notes.md
+          gh release view rc3 --repo "$GH_REPO" --json url,assets,tagName \
+            --jq '{url:.url,tag:.tagName,assets:[.assets[].name]}'
