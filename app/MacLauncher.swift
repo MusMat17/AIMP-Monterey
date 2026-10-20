@@ -28,6 +28,15 @@ struct AIMPMontereyLauncher {
 
     static func main() {
         log("AIMP Monterey native entry point started. OS: \(ProcessInfo.processInfo.operatingSystemVersionString)")
+        if CommandLine.arguments.contains("--self-test") {
+            guard Bundle.main.path(forResource: "launch-standalone", ofType: "sh") != nil else {
+                log("SELFTEST FAILED: embedded launch-standalone.sh missing")
+                exit(12)
+            }
+            log("SELFTEST OK: original native entry point and embedded launcher are present")
+            print("AIMP Monterey native bootstrap self-test OK")
+            return
+        }
         let app = NSApplication.shared
         app.setActivationPolicy(.regular)
 
