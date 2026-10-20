@@ -83,7 +83,7 @@ cp "$ROOT/app/Info.plist" "$APP/Contents/Info.plist"
 ICON_ZIP="${AIMP_ICON_ZIP:-$WORK/AIMP-portable-icon-source.zip}"
 if [[ ! -s "$ICON_ZIP" ]]; then
   say 'Obtaining original AIMP ZIP for icon extraction...'
-  /bin/bash "$ROOT/app/find-official-aimp.sh" "$ICON_ZIP" \\
+  /bin/bash "$ROOT/app/find-official-aimp.sh" "$ICON_ZIP" \
     || fail 'Unable to obtain official AIMP logo source'
 fi
 say 'Extracting original AIMP icon for Finder and Dock...'
