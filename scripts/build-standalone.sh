@@ -70,9 +70,21 @@ say "Bundled Wine responds: $WINE_TEST_VERSION"
 # A version string is not proof that a relocated Wine can load kernel32.dll.
 # This integration test executes a built-in Windows process in a fresh
 # temporary Wine prefix before distributing a potentially broken DMG.
-say 'Checking actual Wine Windows bootstrap in fresh isolated prefix...'
-if ! /bin/bash "$ROOT/scripts/smoke-wine-runtime.sh" "$WINE_TEST" "$APP/Contents/Resources/GStreamer.framework"; then
-  fail 'Wine cannot load Windows DLLs from the standalone bundle'
+say 'A/B test of ORIGINAL vendor Wine vs RELOCATED Wine using fresh prefixes...'
+say 'Test A: Unmodified vendor Wine from extracted package'
+if /bin/bash "$ROOT/scripts/smoke-wine-runtime.sh" \
+    "$WINE_APP/Contents/Resources/wine/bin/wine" \
+    "$APP/Contents/Resources/GStreamer.framework"; then
+  say 'Original vendor Wine Windows bootstrap: PASS'
+else
+  fail 'Original vendor Wine could not execute cmd.exe on this macOS runner (cannot assess relocation yet)'
+fi
+say 'Test B: Relocated Wine nested inside AIMP Monterey.app'
+if /bin/bash "$ROOT/scripts/smoke-wine-runtime.sh" \
+    "$WINE_TEST" "$APP/Contents/Resources/GStreamer.framework"; then
+  say 'Relocated Wine Windows bootstrap: PASS'
+else
+  fail 'Relocated Wine failed to execute cmd.exe although original vendor Wine passed'
 fi
 
 say 'Compiling native Finder entry point with a Monterey 12.0 deployment target...'
