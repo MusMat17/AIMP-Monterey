@@ -77,6 +77,19 @@ cp "$ROOT/app/find-official-aimp.sh" "$APP/Contents/Resources/find-official-aimp
 chmod 755 "$APP/Contents/Resources/find-official-aimp.sh"
 cp "$ROOT/app/Info.plist" "$APP/Contents/Info.plist"
 /usr/bin/plutil -lint "$APP/Contents/Info.plist"
+
+# Build only: obtain the actual AIMP application icon from the unchanged
+# official Windows distribution. macOS users do NOT install icoutils.
+ICON_ZIP="${AIMP_ICON_ZIP:-$WORK/AIMP-portable-icon-source.zip}"
+if [[ ! -s "$ICON_ZIP" ]]; then
+  say 'Obtaining original AIMP ZIP for icon extraction...'
+  /bin/bash "$ROOT/app/find-official-aimp.sh" "$ICON_ZIP" \\
+    || fail 'Unable to obtain official AIMP logo source'
+fi
+say 'Extracting original AIMP icon for Finder and Dock...'
+/bin/bash "$ROOT/scripts/build-aimp-icon.sh" "$ICON_ZIP" "$APP/Contents/Resources/AIMP.icns"
+[[ -s "$APP/Contents/Resources/AIMP.icns" ]] || fail 'Generated AIMP.icns is missing'
+
 [[ "$(file "$APP/Contents/MacOS/AIMP")" == *x86_64* ]] || fail 'Launcher executable is not Intel'
 
 # We do not embed proprietary AIMP files in public artifacts.
