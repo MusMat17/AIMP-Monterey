@@ -5,9 +5,10 @@
   <key>CFBundleName</key><string>AIMP Monterey</string>
   <key>CFBundleDisplayName</key><string>AIMP Monterey</string>
   <key>CFBundleIdentifier</key><string>io.github.musmat17.aimp-monterey</string>
-  <key>CFBundleVersion</key><string>1</string>
-  <key>CFBundleShortVersionString</key><string>0.1.0</string>
+  <key>CFBundleVersion</key><string>2</string>
+  <key>CFBundleShortVersionString</key><string>0.2.0-rc2</string>
   <key>CFBundleExecutable</key><string>AIMP</string>
+  <key>CFBundleIconFile</key><string>AIMP.icns</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>LSMinimumSystemVersion</key><string>12.0</string>
   <key>LSArchitecturePriority</key><array><string>x86_64</string></array>
