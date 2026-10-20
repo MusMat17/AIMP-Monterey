@@ -1,29 +1,49 @@
 import AppKit
 import Foundation
 
-/// Intel macOS 12 native launch shim for a bundled Wine application.
-/// No user-visible Terminal or separate Wine installation required.
+/// macOS 12 Intel entry point. Log is created BEFORE spawning Bash/Wine.
+/// This captures launch failures that previously left no launcher.log.
 @main
 struct AIMPMontereyLauncher {
     static var progressWindow: NSWindow?
     static var monitor: Timer?
 
+    static let logURL = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Library/Logs/AIMP Monterey/launcher.log")
+
+    static func log(_ message: String) {
+        let fm = FileManager.default
+        try? fm.createDirectory(at: logURL.deletingLastPathComponent(),
+                                withIntermediateDirectories: true, attributes: nil)
+        let line = "[native] \(ISO8601DateFormatter().string(from: Date())) \(message)\n"
+        if !fm.fileExists(atPath: logURL.path) {
+            fm.createFile(atPath: logURL.path, contents: Data(), attributes: nil)
+        }
+        if let handle = try? FileHandle(forWritingTo: logURL) {
+            handle.seekToEndOfFile()
+            if let data = line.data(using: .utf8) { handle.write(data) }
+            handle.closeFile()
+        }
+    }
+
     static func main() {
+        log("AIMP Monterey native entry point started. OS: \(ProcessInfo.processInfo.operatingSystemVersionString)")
         let app = NSApplication.shared
         app.setActivationPolicy(.regular)
 
-        guard let launch = Bundle.main.path(forResource: "launch-standalone", ofType: "sh") else {
-            showError("Файл запуска отсутствует в приложении.")
+        guard let script = Bundle.main.path(forResource: "launch-standalone", ofType: "sh") else {
+            log("ERROR: launch-standalone.sh missing from Contents/Resources")
+            showError("Внутри приложения отсутствует скрипт запуска.", details: nil)
             return
         }
+        log("Launch script found: \(script)")
 
-        let userData = FileManager.default.homeDirectoryForCurrentUser
+        let appExe = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support/AIMP Monterey/AIMP/AIMP.exe")
-        let firstLaunch = !FileManager.default.fileExists(atPath: userData.path)
-        if firstLaunch {
+        if !FileManager.default.fileExists(atPath: appExe.path) {
             showProgress()
             monitor = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-                if FileManager.default.fileExists(atPath: userData.path) {
+                if FileManager.default.fileExists(atPath: appExe.path) {
                     dismissProgress()
                 }
             }
@@ -31,12 +51,23 @@ struct AIMPMontereyLauncher {
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/bash")
-        process.arguments = [launch] + Array(CommandLine.arguments.dropFirst())
+        process.arguments = [script] + Array(CommandLine.arguments.dropFirst())
+
+        // Capture shell stderr even when Bash exits before its own log initialization.
+        let stderrHandle = try? FileHandle(forWritingTo: logURL)
+        stderrHandle?.seekToEndOfFile()
+        if let stderrHandle = stderrHandle {
+            process.standardError = stderrHandle
+        }
+
         process.terminationHandler = { finished in
             DispatchQueue.main.async {
+                stderrHandle?.closeFile()
                 dismissProgress()
+                log("Launcher exited with status \(finished.terminationStatus), reason \(finished.terminationReason.rawValue)")
                 if finished.terminationStatus != 0 {
-                    showError("AIMP не запустился. Отчёт находится в ~/Library/Logs/AIMP Monterey/launcher.log")
+                    let message = "Не удалось запустить AIMP (код \(finished.terminationStatus))."
+                    showError(message, details: lastLogLines())
                 }
                 NSApp.terminate(nil)
             }
@@ -44,40 +75,45 @@ struct AIMPMontereyLauncher {
 
         do {
             try process.run()
+            log("Bash child process started, PID \(process.processIdentifier)")
             app.run()
         } catch {
+            stderrHandle?.closeFile()
             dismissProgress()
-            showError("Ошибка запуска: \(error.localizedDescription)")
+            log("ERROR: unable to start /bin/bash: \(error.localizedDescription)")
+            showError("Ошибка запуска: \(error.localizedDescription)", details: nil)
         }
     }
 
+    static func lastLogLines() -> String {
+        guard let contents = try? String(contentsOf: logURL, encoding: .utf8) else {
+            return "(Не удалось прочитать журнал)"
+        }
+        return contents.components(separatedBy: .newlines).suffix(14).joined(separator: "\n")
+    }
+
     static func showProgress() {
-        let rect = NSRect(x: 0, y: 0, width: 410, height: 125)
-        let window = NSWindow(
-            contentRect: rect,
-            styleMask: [.titled],
-            backing: .buffered,
-            defer: false
-        )
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 132),
+                              styleMask: [.titled], backing: .buffered, defer: false)
         window.title = "AIMP Monterey"
         window.center()
         window.isReleasedWhenClosed = false
 
-        let spinner = NSProgressIndicator(frame: NSRect(x: 24, y: 42, width: 30, height: 30))
+        let spinner = NSProgressIndicator(frame: NSRect(x: 23, y: 44, width: 32, height: 32))
         spinner.style = .spinning
         spinner.startAnimation(nil)
 
         let title = NSTextField(labelWithString: "Подготовка AIMP к первому запуску…")
-        title.frame = NSRect(x: 72, y: 55, width: 320, height: 22)
+        title.frame = NSRect(x: 74, y: 58, width: 350, height: 22)
         title.font = NSFont.systemFont(ofSize: 13, weight: .medium)
 
-        let details = NSTextField(labelWithString: "Загружается оригинальный плеер с aimp.ru")
-        details.frame = NSRect(x: 72, y: 30, width: 320, height: 20)
-        details.textColor = .secondaryLabelColor
+        let hint = NSTextField(labelWithString: "Загружается оригинальная версия с aimp.ru")
+        hint.frame = NSRect(x: 74, y: 32, width: 345, height: 22)
+        hint.textColor = .secondaryLabelColor
 
         window.contentView?.addSubview(spinner)
         window.contentView?.addSubview(title)
-        window.contentView?.addSubview(details)
+        window.contentView?.addSubview(hint)
         progressWindow = window
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
@@ -90,12 +126,22 @@ struct AIMPMontereyLauncher {
         progressWindow = nil
     }
 
-    static func showError(_ message: String) {
+    static func showError(_ message: String, details: String?) {
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
-        alert.messageText = "AIMP Monterey"
-        alert.informativeText = message
+        alert.messageText = "AIMP Monterey — ошибка запуска"
+        alert.informativeText = message + "\n\nЖурнал: " + logURL.path +
+            "\nНажми «Скопировать отчёт» и пришли текст в чат."
         alert.alertStyle = .warning
-        alert.runModal()
+        alert.addButton(withTitle: "Скопировать отчёт")
+        alert.addButton(withTitle: "Закрыть")
+        if alert.runModal() == .alertFirstButtonReturn {
+            let report = "AIMP Monterey diagnostic report\n" +
+                "macOS: \(ProcessInfo.processInfo.operatingSystemVersionString)\n" +
+                "Error: \(message)\nLog path: \(logURL.path)\n" +
+                (details ?? lastLogLines())
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(report, forType: .string)
+        }
     }
 }
