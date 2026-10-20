@@ -10,6 +10,8 @@ on:
       - app/launch-standalone.sh
       - app/Info.plist
       - scripts/build-standalone.sh
+      - scripts/build-aimp-icon.sh
+      - app/find-official-aimp.sh
       - .github/workflows/standalone-dmg.yml
 
 permissions:
@@ -26,15 +28,26 @@ jobs:
           bash -n app/launch-standalone.sh
           bash -n app/find-official-aimp.sh
           bash -n scripts/build-standalone.sh
+          bash -n scripts/build-aimp-icon.sh
           plutil -lint app/Info.plist
       - name: Verify official AIMP download bootstrap without publishing AIMP
         run: |
           bash app/find-official-aimp.sh "$RUNNER_TEMP/aimp-original.zip"
           unzip -tqq "$RUNNER_TEMP/aimp-original.zip"
-          rm -f "$RUNNER_TEMP/aimp-original.zip"
+      - name: Install icon extractor on build machine only
+        run: brew install icoutils
       - name: Build macOS Intel app + DMG with Wine and GStreamer embedded
+        env:
+          AIMP_ICON_ZIP: ${{ runner.temp }}/aimp-original.zip
         run: |
           bash scripts/build-standalone.sh
+      - name: Self-test early native diagnostic log and app icon
+        run: |
+          set -euo pipefail
+          "dist/AIMP Monterey.app/Contents/MacOS/AIMP" --self-test
+          test -s "$HOME/Library/Logs/AIMP Monterey/launcher.log"
+          test -s "dist/AIMP Monterey.app/Contents/Resources/AIMP.icns"
+          plutil -extract CFBundleIconFile raw -o - "dist/AIMP Monterey.app/Contents/Info.plist" | grep -Fx "AIMP.icns"
       - name: Upload experimental DMG
         uses: actions/upload-artifact@v4
         with:
