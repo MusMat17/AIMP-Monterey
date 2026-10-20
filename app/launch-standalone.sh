@@ -30,7 +30,7 @@ export GST_PLUGIN_SYSTEM_PATH_1_0="$GST/Versions/Current/lib/gstreamer-1.0"
 export PATH="$(dirname "$WINE"):$RES/Wine/Contents/Resources/start/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 export WINEARCH=win64
 export WINEPREFIX="$PREFIX"
-export WINEDEBUG=-all
+export WINEDEBUG="${WINEDEBUG:--all}"
 
 # AIMP is proprietary: obtain its untouched original portable ZIP directly
 # from the author's website, *only for this user's local installation*.
@@ -85,4 +85,11 @@ done
 
 log "Running bundled Wine: $("$WINE" --version 2>&1); media args: ${#args[@]}"
 cd "$AIMPDIR"
-"$WINE" "$AIMPDIR/AIMP.exe" "${args[@]}" >> "$LOG" 2>&1
+# macOS Monterey ships Bash 3.2. With set -u it raises "args[@]: unbound
+# variable" when the array is empty, even when it was initialized with args=().
+# Avoid *any* expansion of an empty array in the normal Finder-launch path.
+if [[ "$#" -eq 0 ]]; then
+  "$WINE" "$AIMPDIR/AIMP.exe" >> "$LOG" 2>&1
+else
+  "$WINE" "$AIMPDIR/AIMP.exe" "${args[@]}" >> "$LOG" 2>&1
+fi
