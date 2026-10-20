@@ -34,13 +34,25 @@ else
 fi
 echo '=== Bundled DLL locations ==='
 find "$RES/Wine/Contents/Resources/wine" -iname kernel32.dll -print | head -n 12
-echo '=== Built-in Wine executable dependencies ==='
-/usr/bin/otool -L "$WINE" 2>&1 | head -n 45
+# Do not call otool/xcode-select: this can trigger a huge Xcode developer-tools download.
+echo '=== Native binary metadata (no developer tools) ==='
+/usr/bin/file "$WINE" 2>&1
 echo '=== Quarantine / code signature status ==='
 /usr/bin/xattr -p com.apple.quarantine "$APP" 2>&1 || true
 /usr/bin/codesign --verify --verbose=2 "$APP" 2>&1 || true
 
-echo '=== Isolated CLEAN prefix test; original user prefix remains untouched ==='
+if [[ "${1:-}" != "--deep" ]]; then
+  echo '=== Quick offline diagnostics complete ==='
+  echo 'No Windows program or Wine prefix initialization was started.'
+  echo 'Run this script with --deep only if an extended Wine execution test is required.'
+  echo "Saved diagnostic report: $REPORT"
+  exit 0
+fi
+
+echo '=== Extended isolated Wine test (can open installer dialogs) ==='
+echo 'Disabling automatic Wine Mono, Gecko and winegstreamer registration for this test.'
+export WINEDLLOVERRIDES='winegstreamer,mscoree,mshtml='
+
 export WINEPREFIX="$TMP/prefix"
 export WINEARCH=win64
 export DYLD_FRAMEWORK_PATH="$RES"
