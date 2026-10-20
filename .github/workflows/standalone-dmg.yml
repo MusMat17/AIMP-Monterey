@@ -11,6 +11,7 @@ on:
       - app/Info.plist
       - scripts/build-standalone.sh
       - scripts/build-aimp-icon.sh
+      - scripts/smoke-wine-runtime.sh
       - app/find-official-aimp.sh
       - tests/test-monterey-launcher.sh
       - .github/workflows/standalone-dmg.yml
@@ -30,6 +31,7 @@ jobs:
           bash -n app/find-official-aimp.sh
           bash -n scripts/build-standalone.sh
           bash -n scripts/build-aimp-icon.sh
+          bash -n scripts/smoke-wine-runtime.sh
           plutil -lint app/Info.plist
           /bin/bash -n tests/test-monterey-launcher.sh
       - name: Regression — launch with zero args under macOS system Bash
