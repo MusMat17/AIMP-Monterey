@@ -2,6 +2,24 @@
 
 > **Experimental:** Automated packaging is configured, but playback has **not** yet been verified on a physical Intel Mac running Monterey. This is a compatibility wrapper, **not a native AIMP port**, and a successful GitHub Actions build alone is not proof of compatibility.
 
+## Known Monterey startup failure (rc3, 2026-10-21)
+
+**Confirmed on Intel macOS 12.7.6:** after the Bash-3.2 fix, AIMP downloads correctly, but Wine 11.0 fails before Windows startup with `wine: could not load kernel32.dll, status c0000135` (exit status 53).
+
+Do **not** treat rc3 as working on Monterey. AIPM original download is not the problem. The launcher code and Wine runtime are under investigation; no verified rc4 release exists yet.
+
+Safe one-time diagnostic from a Mac Terminal:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/MusMat17/AIMP-Monterey/dev/monterey-intel/scripts/diagnose-monterey-runtime.command \
+  -o "$HOME/Downloads/AIMP-Wine-Diagnostic.command"
+bash "$HOME/Downloads/AIMP-Wine-Diagnostic.command"
+```
+
+The script tests a clean temporary Wine prefix, writes a report to the Desktop and **never deletes or changes the existing AIMP Wine prefix**. Share the report privately to distinguish a corrupt user prefix from a broken runtime bundle or OS compatibility issue. Logs can contain paths/metadata.
+
+A macOS 15 runner may hang during fresh Wine prefix initialization because it is not the same environment as a logged-in Monterey desktop. A successful `wine --version` proves only that the loader executable starts; it is **not** a functional Wine integration test. GitHub Actions now checks a real Wine Windows process before shipping any further DMG.
+
 ## One-click target
 
 `AIMP Monterey.app`, bundled with the WineHQ x86_64 runtime and the required GStreamer framework, launched from Finder. **No Homebrew, MacPorts, Wine installer, Terminal, or administrative privileges required on the target Mac.**
