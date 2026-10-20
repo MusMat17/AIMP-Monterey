@@ -12,6 +12,7 @@ on:
       - scripts/build-standalone.sh
       - scripts/build-aimp-icon.sh
       - app/find-official-aimp.sh
+      - tests/test-monterey-launcher.sh
       - .github/workflows/standalone-dmg.yml
 
 permissions:
@@ -30,6 +31,9 @@ jobs:
           bash -n scripts/build-standalone.sh
           bash -n scripts/build-aimp-icon.sh
           plutil -lint app/Info.plist
+          /bin/bash -n tests/test-monterey-launcher.sh
+      - name: Regression — launch with zero args under macOS system Bash
+        run: /bin/bash tests/test-monterey-launcher.sh
       - name: Verify official AIMP download bootstrap without publishing AIMP
         run: |
           bash app/find-official-aimp.sh "$RUNNER_TEMP/aimp-original.zip"
