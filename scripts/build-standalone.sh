@@ -71,9 +71,9 @@ say "Bundled Wine responds: $WINE_TEST_VERSION"
 # This integration test executes a built-in Windows process in a fresh
 # temporary Wine prefix before distributing a potentially broken DMG.
 say 'Checking actual Wine Windows bootstrap in fresh isolated prefix...'
-/bin/bash "$ROOT/scripts/smoke-wine-runtime.sh" \\
-  "$WINE_TEST" "$APP/Contents/Resources/GStreamer.framework" \\
-  || fail 'Wine cannot load Windows DLLs from the standalone bundle'
+if ! /bin/bash "$ROOT/scripts/smoke-wine-runtime.sh" "$WINE_TEST" "$APP/Contents/Resources/GStreamer.framework"; then
+  fail 'Wine cannot load Windows DLLs from the standalone bundle'
+fi
 
 say 'Compiling native Finder entry point with a Monterey 12.0 deployment target...'
 xcrun swiftc -parse-as-library -O -target x86_64-apple-macos12.0 \
